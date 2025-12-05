@@ -37,13 +37,16 @@ NUM_LABELS = len(EMOTION_ID2LABEL)
 
 # ---------- EEM model (matches training script) ----------
 class EmotionEvolutionModel(nn.Module):
-    def __init__(self, bert_name: str = "bert-base-uncased", lstm_hidden: int = 256, num_labels: int = NUM_LABELS, dropout: float = 0.3):
+    def __init__(self, bert_name: str = "bert-base-uncased", lstm_hidden: int = 18, num_labels: int = NUM_LABELS, dropout: float = 0.3):
         super().__init__()
         self.bert = BertModel.from_pretrained(bert_name)
-        self.hidden_size = self.bert.config.hidden_size
-        self.bilstm = nn.LSTM(self.hidden_size, lstm_hidden, batch_first=True, bidirectional=True)
-        self.dropout = nn.Dropout(dropout)
-        self.classifier = nn.Linear(2 * lstm_hidden, num_labels)
+        self.lstm = nn.LSTM(
+        input_size=self.bert.config.hidden_size,
+        hidden_size=128,
+        batch_first=True,
+        bidirectional=True
+        )
+        self.fc = nn.Linear(128 * 2, 7)
 
     def forward(self, input_ids: torch.Tensor, attention_mask: torch.Tensor, turn_counts: torch.Tensor) -> torch.Tensor:
         outputs = self.bert(input_ids=input_ids, attention_mask=attention_mask)
@@ -65,6 +68,8 @@ class EmotionEvolutionModel(nn.Module):
 # ---------- Helpers ----------
 @st.cache_resource
 def load_eem(bert_name: str, ckpt_bytes: bytes) -> Dict[str, Any]:
+    import tempfile, torch
+    from transformers import BertTokenizerFast
     # Save checkpoint to a temp file
     import tempfile, torch
     tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".pt")
