@@ -66,21 +66,29 @@ class EmotionEvolutionModel(nn.Module):
 @st.cache_resource
 def load_eem(bert_name: str, ckpt_bytes: bytes) -> Dict[str, Any]:
     # Save checkpoint to a temp file
-    import tempfile, io, torch
+    import tempfile, torch
     tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".pt")
     tmp.write(ckpt_bytes)
     tmp.flush()
     ckpt = torch.load(tmp.name, map_location="cpu")
+
+    # Use the bert_name argument directly instead of ckpt["bert_name"]
     model = EmotionEvolutionModel(
-    bert_name=ckpt["bert_name"],
-    hidden_size=128,
-    num_classes=7
+        bert_name=bert_name,
+        hidden_size=128,
+        num_classes=7
     )
+
+    # Restore trained layers
     model.lstm.load_state_dict(ckpt["lstm_state_dict"])
     model.fc.load_state_dict(ckpt["fc_state_dict"])
     model.eval()
+
+    from transformers import BertTokenizerFast
     tok = BertTokenizerFast.from_pretrained(bert_name)
+
     return {"model": model, "tokenizer": tok}
+
 
 @st.cache_resource
 def load_pretrained_classifier(model_name: str = "j-hartmann/emotion-english-distilroberta-base"):
